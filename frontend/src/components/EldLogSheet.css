@@ -1,0 +1,399 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   ELD Log Sheet — Official FMCSA Driver's Daily Log Form Styles
+   Matches the "Completed Log" reference from FMCSA HOS Guide (April 2022)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Wrapper ── */
+.eld-wrapper {
+  padding: 20px;
+  background: #e5e7eb;
+  min-height: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+/* ── The form page (white, bordered) ── */
+.eld-page {
+  background: #ffffff;
+  border: 2px solid #1a1a1a;
+  width: 100%;
+  max-width: 1000px;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 0.75rem;
+  color: #1a1a1a;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════ */
+/* HEADER SECTION                                                            */
+/* ══════════════════════════════════════════════════════════════════════════ */
+
+.eld-header-section {
+  padding: 10px 16px 0;
+  border-bottom: 1px solid #1a1a1a;
+}
+
+/* Top row: DOT | Title | Copy labels */
+.eld-hdr-top-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.eld-dot-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #333;
+  flex: 0 0 160px;
+}
+
+.eld-title-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.eld-form-title {
+  font-size: 1rem;
+  font-weight: 900;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.eld-form-subtitle {
+  font-size: 0.65rem;
+  text-align: center;
+  color: #333;
+}
+
+.eld-copy-labels {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-size: 0.62rem;
+  color: #333;
+  flex: 0 0 200px;
+}
+
+/* Date / Miles / Vehicle row */
+.eld-date-miles-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 20px;
+  padding: 6px 0;
+  border-top: 1px solid #ccc;
+}
+
+.eld-date-cluster {
+  flex: 0 0 auto;
+}
+
+.eld-date-nums {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.eld-big-val {
+  font-size: 1.4rem;
+  font-weight: 900;
+  font-family: 'Times New Roman', Times, serif;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+}
+
+.eld-vehicle-num {
+  font-size: 1.1rem;
+}
+
+.eld-date-sep {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #555;
+}
+
+.eld-date-sub-labels {
+  display: flex;
+  font-size: 0.6rem;
+  color: #555;
+  margin-top: 1px;
+}
+
+.eld-miles-cluster {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.eld-vehicle-cluster {
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.eld-field-sub {
+  font-size: 0.58rem;
+  color: #444;
+  display: block;
+  margin-top: 1px;
+}
+
+/* From / To row */
+.eld-from-to-row {
+  display: flex;
+  gap: 24px;
+  padding: 5px 0;
+  border-top: 1px solid #ccc;
+}
+
+.eld-from-block {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.eld-from-label {
+  font-weight: 700;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.eld-from-val {
+  border-bottom: 1px solid #1a1a1a;
+  flex: 1;
+  font-size: 0.78rem;
+  padding-bottom: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Certification */
+.eld-cert-line {
+  font-size: 0.65rem;
+  text-align: center;
+  padding: 4px 0 2px;
+  color: #333;
+  border-top: 1px solid #ccc;
+}
+
+/* Signature row */
+.eld-sig-row,
+.eld-office-row {
+  display: flex;
+  gap: 20px;
+  padding: 4px 0;
+  border-top: 1px solid #ccc;
+  align-items: flex-end;
+}
+
+.eld-sig-block {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.eld-border-bottom {
+  border-bottom: 1px solid #1a1a1a;
+  padding-bottom: 2px;
+}
+
+.eld-italic-field {
+  font-style: italic;
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 1.0rem;
+  font-weight: 700;
+}
+
+.eld-total-hrs-col-hdr {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-align: center;
+  width: 56px;
+  flex-shrink: 0;
+  align-self: flex-end;
+  line-height: 1.2;
+  padding-bottom: 2px;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════ */
+/* GRAPH GRID                                                                */
+/* ══════════════════════════════════════════════════════════════════════════ */
+
+.eld-grid-wrapper {
+  padding: 2px 0 0;
+  border-top: 2px solid #1a1a1a;
+  border-bottom: 1px solid #ccc;
+  overflow: hidden;
+}
+
+.eld-grid-svg {
+  display: block;
+  width: 100%;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════ */
+/* REMARKS SECTION                                                           */
+/* ══════════════════════════════════════════════════════════════════════════ */
+
+.eld-remarks-section {
+  border-top: 1px solid #1a1a1a;
+  padding: 0 0 8px;
+}
+
+.eld-remarks-ruler-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px 0;
+}
+
+.eld-remarks-label {
+  font-size: 0.75rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  width: 62px;
+}
+
+.eld-remarks-ruler-svg {
+  flex: 1;
+  display: block;
+}
+
+.eld-remarks-eq24 {
+  font-size: 0.8rem;
+  font-weight: 900;
+  width: 56px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/* Remark location entries */
+.eld-remarks-locs-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px 12px 0 80px;
+}
+
+.eld-remark-entry {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  border-left: 2px solid #1e40af;
+  padding-left: 5px;
+  min-width: 100px;
+}
+
+.eld-remark-time {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #1e40af;
+}
+
+.eld-remark-loc-text {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  word-break: break-word;
+}
+
+.eld-remark-status-tag {
+  font-size: 0.58rem;
+  text-transform: capitalize;
+  color: #555;
+  font-style: italic;
+}
+
+.eld-remarks-instruction {
+  font-size: 0.6rem;
+  color: #555;
+  text-align: center;
+  padding: 6px 20px 0;
+  line-height: 1.4;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════ */
+/* SHIPPING & RECAP SECTION                                                  */
+/* ══════════════════════════════════════════════════════════════════════════ */
+
+.eld-shipping-section {
+  border-top: 2px solid #1a1a1a;
+  padding: 8px 16px;
+}
+
+.eld-shipping-row {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.eld-shipping-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.eld-shipping-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.eld-shipping-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.eld-field-line {
+  width: 220px;
+  border-bottom: 1px solid #1a1a1a;
+  height: 14px;
+}
+
+/* Recap table */
+.eld-recap-block {
+  flex: 1;
+  border: 1px solid #ccc;
+  padding: 8px;
+  border-radius: 2px;
+}
+
+.eld-recap-title {
+  font-size: 0.68rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-bottom: 1px solid #ccc;
+  padding-bottom: 4px;
+}
+
+.eld-recap-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.65rem;
+}
+
+.eld-recap-table td {
+  padding: 3px 4px;
+  border-bottom: 1px solid #eee;
+  color: #333;
+}
+
+.eld-recap-val {
+  font-weight: 900;
+  text-align: right;
+  font-size: 0.78rem;
+  color: #1a1a1a;
+}

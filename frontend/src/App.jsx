@@ -53,20 +53,22 @@ function transformApiResponse(apiData) {
       }
 
       return {
-        type,
+        type: evt.type,
         start_hour: startHour,
         end_hour: endHour,
-        description: evt.description || evt.location || type
+        description: evt.description || evt.location || evt.type
       };
     }).filter(evt => evt.end_hour > evt.start_hour);
 
     return {
-      day_number: dayLog.day_number,
-      date: dayLog.date,
-      total_miles: dayLog.total_miles || 0,
+      day_number:    dayLog.day_number,
+      date:          dayLog.date,
+      total_miles:   dayLog.total_miles || 0,
       hours_summary: dayLog.hours_summary || { off_duty: 24, sleeper_berth: 0, driving: 0, on_duty_not_driving: 0 },
       events,
-      remarks: dayLog.remarks || []
+      remarks:       dayLog.remarks || [],
+      from_location: dayLog.from_location || '',
+      to_location:   dayLog.to_location   || ''
     };
   });
 

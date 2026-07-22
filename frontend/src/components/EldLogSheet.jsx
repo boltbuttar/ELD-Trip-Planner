@@ -1,383 +1,492 @@
 import React, { useMemo } from 'react';
+import './EldLogSheet.css';
 
+// ─── Grid layout constants ────────────────────────────────────────────────────
+const LABEL_W   = 62;        // left row-label column
+const TOTAL_W   = 56;        // right total-hours column
+const GRID_W    = 756;       // 24-hour grid width (756 / 24 = 31.5 px/hr)
+const PX_PER_HR = GRID_W / 24;
+const ROW_H     = 42;        // height of each status row
+const TICK_ROWS = 4;         // number of status rows
+const LABEL_Y   = 18;        // y-position of top hour labels (baseline)
+const GRID_TOP  = LABEL_Y + 4;   // grid starts just below labels
+const GRID_BOT  = GRID_TOP + ROW_H * TICK_ROWS;
+const SVG_W     = LABEL_W + GRID_W + TOTAL_W;
+const SVG_H     = GRID_BOT + 28;  // room for bottom labels
+
+// ─── FMCSA official row order ─────────────────────────────────────────────────
+const ROWS = [
+  { key: 'off_duty',            shortLabel: ['Off', 'Duty'] },
+  { key: 'sleeper_berth',       shortLabel: ['Sleeper', 'Berth'] },
+  { key: 'driving',             shortLabel: ['Driving'] },
+  { key: 'on_duty_not_driving', shortLabel: ['On Duty', '(Not', 'Driving)'] },
+];
+
+// FMCSA official label format: skips "1", uses Noon for 12, 13-23 for afternoon
+const HOUR_LABELS = [
+  [0, 'Mid-\nnight'], [2, '2'], [3, '3'], [4, '4'], [5, '5'],
+  [6, '6'], [7, '7'], [8, '8'], [9, '9'], [10, '10'], [11, '11'],
+  [12, 'Noon'], [13, '13'], [14, '14'], [15, '15'], [16, '16'],
+  [17, '17'], [18, '18'], [19, '19'], [20, '20'], [21, '21'],
+  [22, '22'], [23, '23'], [24, 'Mid-\nnight']
+];
+
+// Colour fills for status rows (light, behind the blue step-line)
+const ROW_FILLS = {
+  off_duty:            '#f0f4f8',
+  sleeper_berth:       '#dbeafe',
+  driving:             '#fef9c3',
+  on_duty_not_driving: '#dcfce7',
+};
+
+// ─── Pure helpers (no hooks) ──────────────────────────────────────────────────
+const rowIdx    = (key) => ROWS.findIndex(r => r.key === key);
+const rowY      = (key) => GRID_TOP + rowIdx(key) * ROW_H;
+const rowCenterY = (key) => rowY(key) + ROW_H / 2;
+const hx        = (h)   => LABEL_W + h * PX_PER_HR;
+
+const normType = (t) =>
+  ['pickup', 'dropoff', 'fueling', 'break', 'on_duty_not_driving'].includes(t)
+    ? 'on_duty_not_driving'
+    : ['sleeper_berth', 'driving'].includes(t) ? t : 'off_duty';
+
+const fmtDecHrs = (v = 0) => {
+  if (v === 0) return '0';
+  const h = Math.floor(v);
+  const m = Math.round((v - h) * 60);
+  if (m === 0) return `${h}`;
+  const dec = m === 30 ? '5' : (m / 60).toFixed(2).slice(1);
+  return `${h}.${dec.replace('.', '')}`;
+};
+
+const timeToDecHr = (timeStr) => {
+  if (!timeStr) return 0;
+  const [h, m] = timeStr.split(':').map(Number);
+  return (h || 0) + (m || 0) / 60;
+};
+
+// ─── Component ────────────────────────────────────────────────────────────────
 const EldLogSheet = ({ logData }) => {
   if (!logData) return null;
 
   const {
-    day_number = 1,
-    date = '',
-    events = [],
-    total_miles = 0,
-    hours_summary = { off_duty: 24, sleeper_berth: 0, driving: 0, on_duty_not_driving: 0 },
-    remarks = []
+    day_number      = 1,
+    date            = '',
+    events          = [],
+    total_miles     = 0,
+    hours_summary   = { off_duty: 24, sleeper_berth: 0, driving: 0, on_duty_not_driving: 0 },
+    remarks         = [],
+    from_location   = '',
+    to_location     = '',
   } = logData;
 
-  // ── SVG Grid Constants ──
-  const SVG_W = 960;
-  const LABEL_W = 130;       // left label area
-  const TOTALS_W = 58;       // right totals column
-  const GRID_X = LABEL_W;
-  const GRID_W = SVG_W - LABEL_W - TOTALS_W;  // 772
-  const PX_PER_HR = GRID_W / 24;
+  // Parse date into month/day/year
+  const [yyyy = '', mm = '', dd = ''] = date ? date.split('-') : [];
+  const totalLoggedHrs = Object.values(hours_summary).reduce((s, v) => s + v, 0);
 
-  const HEADER_Y = 0;
-  const HOUR_LABEL_Y = 64;
-  const GRID_TOP = 76;
-  const ROW_H = 44;
-  const ROW_GAP = 0;
-
-  const ROWS = [
-    { key: 'off_duty',            label: '1. Off Duty',             y: GRID_TOP },
-    { key: 'sleeper_berth',       label: '2. Sleeper Berth',        y: GRID_TOP + ROW_H },
-    { key: 'driving',             label: '3. Driving',              y: GRID_TOP + ROW_H * 2 },
-    { key: 'on_duty_not_driving', label: '4. On Duty (Not Driving)', y: GRID_TOP + ROW_H * 3 },
-  ];
-
-  const GRID_BOTTOM = GRID_TOP + ROW_H * 4;
-
-  const rowCenter = (key) => {
-    const row = ROWS.find(r => r.key === key);
-    return row ? row.y + ROW_H / 2 : ROWS[0].y + ROW_H / 2;
-  };
-
-  const hourToX = (h) => GRID_X + h * PX_PER_HR;
-
-  // ── Build the continuous status line path ──
-  const statusPath = useMemo(() => {
-    if (!events || events.length === 0) {
-      // Default: all off duty
-      const y = rowCenter('off_duty');
-      return `M ${hourToX(0)} ${y} L ${hourToX(24)} ${y}`;
-    }
-
-    // Sort & fill gaps with off_duty
+  // ─── Build timeline + step-function path ──────────────────────────────────
+  const { filled, pathD } = useMemo(() => {
     const sorted = [...events]
-      .filter(e => e.end_hour > e.start_hour)
+      .filter(e =>
+        typeof e.start_hour === 'number' &&
+        typeof e.end_hour   === 'number' &&
+        e.end_hour > e.start_hour
+      )
       .sort((a, b) => a.start_hour - b.start_hour);
 
-    // Fill any gaps in the timeline with off_duty
     const filled = [];
     let cursor = 0;
+
     for (const evt of sorted) {
-      if (evt.start_hour > cursor + 0.01) {
-        filled.push({ type: 'off_duty', start_hour: cursor, end_hour: evt.start_hour });
+      const s = Math.max(0, Math.min(24, evt.start_hour));
+      const e = Math.max(0, Math.min(24, evt.end_hour));
+      if (s > cursor + 0.005) {
+        filled.push({ type: 'off_duty', start: cursor, end: s });
       }
-      filled.push(evt);
-      cursor = evt.end_hour;
+      if (e > s) {
+        filled.push({ type: normType(evt.type), start: s, end: e, desc: evt.description || '' });
+      }
+      cursor = Math.max(cursor, e);
     }
     if (cursor < 23.99) {
-      filled.push({ type: 'off_duty', start_hour: cursor, end_hour: 24 });
+      filled.push({ type: 'off_duty', start: cursor, end: 24 });
     }
-
     if (filled.length === 0) {
-      const y = rowCenter('off_duty');
-      return `M ${hourToX(0)} ${y} L ${hourToX(24)} ${y}`;
+      filled.push({ type: 'off_duty', start: 0, end: 24 });
     }
 
+    // Build SVG path as a continuous step-function line
     let d = '';
-    filled.forEach((evt, i) => {
-      const y = rowCenter(evt.type);
-      const x1 = hourToX(evt.start_hour);
-      const x2 = hourToX(evt.end_hour);
-
+    filled.forEach((seg, i) => {
+      const cy = rowCenterY(seg.type);
+      const x1 = hx(seg.start);
+      const x2 = hx(seg.end);
       if (i === 0) {
-        d += `M ${x1} ${y}`;
+        d += `M ${x1} ${cy}`;
       } else {
-        // Vertical transition from previous row to this row
-        d += ` L ${x1} ${y}`;
+        // Vertical segment (transition between rows)
+        d += ` L ${x1} ${cy}`;
       }
-      // Horizontal line for this event
-      d += ` L ${x2} ${y}`;
+      // Horizontal segment across this status period
+      d += ` L ${x2} ${cy}`;
     });
 
-    return d;
+    return { filled, pathD: d };
   }, [events]);
 
-  const formatHours = (val) => {
-    const h = Math.floor(val);
-    const m = Math.round((val - h) * 60);
-    return `${h}:${m.toString().padStart(2, '0')}`;
+  // ─── Render tick marks for a given row ────────────────────────────────────
+  const renderTicks = (rowKey) => {
+    const ry = rowY(rowKey);
+    const marks = [];
+    for (let q = 0; q <= 24 * 4; q++) {
+      if (q % 4 === 0) continue; // full hours already handled by vertical grid lines
+      const x = hx(q / 4);
+      const isHalf = q % 2 === 0;
+      const tickH  = isHalf ? 12 : 7;
+      // top ticks
+      marks.push(<line key={`t-${rowKey}-${q}-top`}
+        x1={x} y1={ry} x2={x} y2={ry + tickH}
+        stroke="#666" strokeWidth="0.5" />);
+      // bottom ticks
+      marks.push(<line key={`t-${rowKey}-${q}-bot`}
+        x1={x} y1={ry + ROW_H} x2={x} y2={ry + ROW_H - tickH}
+        stroke="#666" strokeWidth="0.5" />);
+    }
+    return marks;
   };
 
-  const totalHours = Object.values(hours_summary).reduce((s, v) => s + v, 0);
-
-  // Hour labels for the top
-  const hourLabels = [];
-  for (let h = 0; h <= 24; h++) {
-    let text;
-    if (h === 0 || h === 24) text = 'Mid-\nnight';
-    else if (h === 12) text = 'Noon';
-    else if (h <= 11) text = String(h);
-    else text = String(h - 12);
-    hourLabels.push({ h, text });
-  }
-
   return (
-    <div className="eld-sheet-wrapper animate-fade-in">
-      {/* ── Document Header ── */}
-      <div className="eld-doc-header">
-        <div className="eld-title-block">
-          <span className="eld-us-dot">U.S. DEPARTMENT OF TRANSPORTATION</span>
-          <h2 className="eld-title">DRIVER'S DAILY LOG</h2>
-          <span className="eld-subtitle">(ONE CALENDAR DAY — 24 HOURS)</span>
-        </div>
-        <div className="eld-copy-block">
-          <span>ORIGINAL — Submit to carrier within 13 days</span>
-          <span>DUPLICATE — Driver retains possession for eight days</span>
-        </div>
-      </div>
+    <div className="eld-wrapper">
+      <div className="eld-page">
 
-      {/* ── Metadata Fields ── */}
-      <div className="eld-meta-row">
-        <div className="eld-meta-field">
-          <span className="eld-field-label">Date</span>
-          <span className="eld-field-value">{date}</span>
-        </div>
-        <div className="eld-meta-field">
-          <span className="eld-field-label">Total Miles Driving Today</span>
-          <span className="eld-field-value">{Math.round(total_miles)}</span>
-        </div>
-        <div className="eld-meta-field">
-          <span className="eld-field-label">Day</span>
-          <span className="eld-field-value">{day_number}</span>
-        </div>
-      </div>
-      <div className="eld-meta-row">
-        <div className="eld-meta-field" style={{ flex: 2 }}>
-          <span className="eld-field-label">Name of Carrier</span>
-          <span className="eld-field-value">Spotter Logistics Inc.</span>
-        </div>
-        <div className="eld-meta-field" style={{ flex: 2 }}>
-          <span className="eld-field-label">Main Office Address</span>
-          <span className="eld-field-value">Houston, TX</span>
-        </div>
-        <div className="eld-meta-field">
-          <span className="eld-field-label">Vehicle Numbers</span>
-          <span className="eld-field-value">TRK-4821</span>
-        </div>
-      </div>
+        {/* ── Official Form Header ── */}
+        <div className="eld-header-section">
+          <div className="eld-hdr-top-row">
+            <span className="eld-dot-label">U.S. DEPARTMENT OF TRANSPORTATION</span>
+            <div className="eld-title-block">
+              <span className="eld-form-title">DRIVER'S DAILY LOG</span>
+              <span className="eld-form-subtitle">(ONE CALENDAR DAY — 24 HOURS)</span>
+            </div>
+            <div className="eld-copy-labels">
+              <span>ORIGINAL — Submit to carrier within 13 days</span>
+              <span>DUPLICATE — Driver retains possession for eight days</span>
+            </div>
+          </div>
 
-      {/* ── SVG Graph Grid ── */}
-      <div className="eld-grid-container">
-        <svg
-          viewBox={`0 0 ${SVG_W} ${GRID_BOTTOM + 4}`}
-          width="100%"
-          preserveAspectRatio="xMidYMid meet"
-          className="eld-svg"
-        >
-          {/* Hour labels at top */}
-          {hourLabels.map(({ h, text }) => {
-            const x = hourToX(h);
-            const lines = text.split('\n');
-            return (
-              <g key={`hlabel-${h}`}>
-                {lines.map((line, li) => (
+          {/* Date / Miles / Vehicle row */}
+          <div className="eld-date-miles-row">
+            <div className="eld-date-cluster">
+              <div className="eld-date-nums">
+                <span className="eld-big-val">{mm}</span>
+                <span className="eld-date-sep">/</span>
+                <span className="eld-big-val">{dd}</span>
+                <span className="eld-date-sep">/</span>
+                <span className="eld-big-val">{yyyy}</span>
+              </div>
+              <div className="eld-date-sub-labels">
+                <span>(MONTH)</span>
+                <span style={{ marginLeft: '16px' }}>(DAY)</span>
+                <span style={{ marginLeft: '16px' }}>(YEAR)</span>
+              </div>
+            </div>
+            <div className="eld-miles-cluster">
+              <span className="eld-big-val">{Math.round(total_miles)}</span>
+              <span className="eld-field-sub">(TOTAL MILES DRIVING TODAY)</span>
+            </div>
+            <div className="eld-vehicle-cluster">
+              <span className="eld-big-val eld-vehicle-num">TRK-4821</span>
+              <span className="eld-field-sub">VEHICLE NUMBERS—(SHOW EACH UNIT)</span>
+            </div>
+          </div>
+
+          {/* From / To */}
+          <div className="eld-from-to-row">
+            <div className="eld-from-block">
+              <span className="eld-from-label">From:</span>
+              <span className="eld-from-val">{from_location || '—'}</span>
+            </div>
+            <div className="eld-from-block">
+              <span className="eld-from-label">To:</span>
+              <span className="eld-from-val">{to_location || '—'}</span>
+            </div>
+          </div>
+
+          {/* Certification line */}
+          <div className="eld-cert-line">
+            <em>I certify that these entries are true and correct</em>
+          </div>
+
+          {/* Carrier / Signature row */}
+          <div className="eld-sig-row">
+            <div className="eld-sig-block eld-border-bottom">
+              <span className="eld-italic-field">Spotter Logistics Inc.</span>
+              <span className="eld-field-sub">(NAME OF CARRIER OR CARRIERS)</span>
+            </div>
+            <div className="eld-sig-block eld-border-bottom">
+              <span className="eld-italic-field">Driver Signature</span>
+              <span className="eld-field-sub">(DRIVER'S SIGNATURE IN FULL)</span>
+            </div>
+          </div>
+
+          {/* Main Office / Co-driver / Total Hours header */}
+          <div className="eld-office-row">
+            <div className="eld-sig-block eld-border-bottom">
+              <span className="eld-italic-field" style={{ fontSize: '0.85rem' }}>Houston, TX</span>
+              <span className="eld-field-sub">(MAIN OFFICE ADDRESS)</span>
+            </div>
+            <div className="eld-sig-block">
+              <span style={{ letterSpacing: '4px' }}>—</span>
+              <span className="eld-field-sub">(NAME OF CO-DRIVER)</span>
+            </div>
+            <div className="eld-total-hrs-col-hdr">
+              TOTAL<br />HOURS
+            </div>
+          </div>
+        </div>
+
+        {/* ── GRAPH GRID (SVG) ── */}
+        <div className="eld-grid-wrapper">
+          <svg
+            viewBox={`0 0 ${SVG_W} ${SVG_H}`}
+            width="100%"
+            preserveAspectRatio="xMidYMid meet"
+            className="eld-grid-svg"
+          >
+            {/* ── Top hour labels ── */}
+            {HOUR_LABELS.map(([h, label]) => {
+              const x = hx(h);
+              const lines = label.split('\n');
+              return lines.map((line, li) => (
+                <text
+                  key={`tl-${h}-${li}`}
+                  x={x}
+                  y={LABEL_Y - (lines.length - 1 - li) * 8}
+                  textAnchor="middle"
+                  fontSize="7"
+                  fontFamily="Arial, Helvetica, sans-serif"
+                  fontWeight={h === 0 || h === 12 || h === 24 ? '700' : '400'}
+                  fill="#1a1a1a"
+                >
+                  {line}
+                </text>
+              ));
+            })}
+
+            {/* ── Grid outer border ── */}
+            <rect
+              x={LABEL_W} y={GRID_TOP}
+              width={GRID_W} height={ROW_H * 4}
+              fill="white" stroke="#1a1a1a" strokeWidth="1.5"
+            />
+
+            {/* ── Status filled rectangles (light tints) ── */}
+            {filled.map((seg, i) => (
+              <rect
+                key={`fill-${i}`}
+                x={hx(seg.start)}
+                y={rowY(seg.type) + 1}
+                width={hx(seg.end) - hx(seg.start)}
+                height={ROW_H - 2}
+                fill={ROW_FILLS[seg.type] || '#f5f5f5'}
+                opacity="0.7"
+              />
+            ))}
+
+            {/* ── Horizontal row dividers ── */}
+            {ROWS.map((_, i) => (
+              <line
+                key={`hd-${i}`}
+                x1={LABEL_W} y1={GRID_TOP + i * ROW_H}
+                x2={LABEL_W + GRID_W} y2={GRID_TOP + i * ROW_H}
+                stroke="#1a1a1a"
+                strokeWidth={i === 0 ? 1.5 : 0.8}
+              />
+            ))}
+
+            {/* ── Vertical hour lines ── */}
+            {Array.from({ length: 25 }).map((_, h) => (
+              <line
+                key={`vl-${h}`}
+                x1={hx(h)} y1={GRID_TOP}
+                x2={hx(h)} y2={GRID_BOT}
+                stroke="#1a1a1a"
+                strokeWidth={h === 0 || h === 12 || h === 24 ? 1.5 : 0.5}
+              />
+            ))}
+
+            {/* ── Ruler tick marks for each row ── */}
+            {ROWS.map(r => renderTicks(r.key))}
+
+            {/* ── Row labels (left side) ── */}
+            {ROWS.map((row, ri) => {
+              const cy = rowY(row.key) + ROW_H / 2;
+              return row.shortLabel.map((line, li) => {
+                const totalLines = row.shortLabel.length;
+                const offsetY = (li - (totalLines - 1) / 2) * 9;
+                return (
                   <text
-                    key={li}
-                    x={x}
-                    y={HOUR_LABEL_Y - (lines.length - 1 - li) * 11}
-                    textAnchor="middle"
-                    fontSize="9"
-                    fontFamily="Inter, sans-serif"
-                    fontWeight="600"
-                    fill="#1e293b"
+                    key={`rl-${ri}-${li}`}
+                    x={LABEL_W - 4}
+                    y={cy + offsetY + 3}
+                    textAnchor="end"
+                    fontSize="8"
+                    fontFamily="Arial, Helvetica, sans-serif"
+                    fontWeight="700"
+                    fill="#1a1a1a"
                   >
                     {line}
                   </text>
-                ))}
-              </g>
-            );
-          })}
+                );
+              });
+            })}
 
-          {/* Grid background */}
-          <rect x={GRID_X} y={GRID_TOP} width={GRID_W} height={ROW_H * 4}
-                fill="#fafbfc" stroke="#1e293b" strokeWidth="1.5" />
+            {/* ── THE STEP-FUNCTION STATUS LINE ── */}
+            <path
+              d={pathD}
+              fill="none"
+              stroke="#1e40af"
+              strokeWidth="2.8"
+              strokeLinejoin="miter"
+              strokeLinecap="square"
+            />
 
-          {/* Row backgrounds (alternating) */}
-          {ROWS.map((row, i) => (
-            <rect key={`rowbg-${i}`} x={GRID_X} y={row.y} width={GRID_W} height={ROW_H}
-                  fill={i % 2 === 0 ? '#f8fafc' : '#f1f5f9'} />
-          ))}
+            {/* ── Total hours per row (right column) ── */}
+            {ROWS.map((row) => {
+              const val = hours_summary[row.key] || 0;
+              return (
+                <text
+                  key={`tot-${row.key}`}
+                  x={LABEL_W + GRID_W + TOTAL_W / 2}
+                  y={rowCenterY(row.key) + 4}
+                  textAnchor="middle"
+                  fontSize="12"
+                  fontFamily="Arial, Helvetica, sans-serif"
+                  fontWeight="900"
+                  fill="#1a1a1a"
+                >
+                  {fmtDecHrs(val)}
+                </text>
+              );
+            })}
 
-          {/* Horizontal row separators */}
-          {ROWS.map((row, i) => (
-            <line key={`hsep-${i}`}
-              x1={GRID_X} y1={row.y}
-              x2={GRID_X + GRID_W} y2={row.y}
-              stroke="#334155" strokeWidth={i === 0 ? "1.5" : "1"} />
-          ))}
-          <line x1={GRID_X} y1={GRID_BOTTOM} x2={GRID_X + GRID_W} y2={GRID_BOTTOM}
-                stroke="#334155" strokeWidth="1.5" />
+            {/* ── Bottom hour labels ── */}
+            {HOUR_LABELS.map(([h, label]) => {
+              const x = hx(h);
+              const lines = label.split('\n');
+              return lines.map((line, li) => (
+                <text
+                  key={`bl-${h}-${li}`}
+                  x={x}
+                  y={GRID_BOT + 9 + li * 8}
+                  textAnchor="middle"
+                  fontSize="7"
+                  fontFamily="Arial, Helvetica, sans-serif"
+                  fontWeight={h === 0 || h === 12 || h === 24 ? '700' : '400'}
+                  fill="#1a1a1a"
+                >
+                  {line}
+                </text>
+              ));
+            })}
 
-          {/* Vertical grid lines for each hour */}
-          {Array.from({ length: 25 }).map((_, h) => {
-            const x = hourToX(h);
-            return (
-              <line key={`vhr-${h}`}
-                x1={x} y1={GRID_TOP} x2={x} y2={GRID_BOTTOM}
-                stroke="#334155" strokeWidth={h === 0 || h === 24 ? "1.5" : "0.8"} />
-            );
-          })}
-
-          {/* 15-minute tick marks */}
-          {Array.from({ length: 24 * 4 }).map((_, i) => {
-            if (i % 4 === 0) return null; // Skip full hours
-            const x = GRID_X + (i / 4) * PX_PER_HR;
-            const isHalf = i % 2 === 0;
-            return (
-              <g key={`tick-${i}`}>
-                {ROWS.map((row, ri) => (
-                  <line key={`tick-${i}-${ri}`}
-                    x1={x} y1={row.y}
-                    x2={x} y2={row.y + (isHalf ? 8 : 4)}
-                    stroke="#94a3b8" strokeWidth="0.5" />
-                ))}
-                {ROWS.map((row, ri) => (
-                  <line key={`tickb-${i}-${ri}`}
-                    x1={x} y1={row.y + ROW_H}
-                    x2={x} y2={row.y + ROW_H - (isHalf ? 8 : 4)}
-                    stroke="#94a3b8" strokeWidth="0.5" />
-                ))}
-              </g>
-            );
-          })}
-
-          {/* Row labels on the left */}
-          {ROWS.map((row) => (
-            <text key={`label-${row.key}`}
-              x={GRID_X - 8}
-              y={row.y + ROW_H / 2 + 4}
-              textAnchor="end"
-              fontSize="9.5"
-              fontFamily="Inter, sans-serif"
-              fontWeight="600"
-              fill="#1e293b"
+            {/* ── Total hours sum (bottom right) ── */}
+            <text
+              x={LABEL_W + GRID_W + TOTAL_W / 2}
+              y={GRID_BOT + 14}
+              textAnchor="middle"
+              fontSize="11"
+              fontFamily="Arial, Helvetica, sans-serif"
+              fontWeight="900"
+              fill="#1a1a1a"
             >
-              {row.label}
+              ={Math.round(totalLoggedHrs)}
             </text>
-          ))}
+          </svg>
+        </div>
 
-          {/* Totals column on the right */}
-          {ROWS.map((row) => {
-            const val = hours_summary[row.key] || 0;
-            return (
-              <text key={`total-${row.key}`}
-                x={GRID_X + GRID_W + TOTALS_W / 2}
-                y={row.y + ROW_H / 2 + 4}
-                textAnchor="middle"
-                fontSize="10"
-                fontFamily="Inter, sans-serif"
-                fontWeight="700"
-                fill="#1e293b"
-              >
-                {formatHours(val)}
-              </text>
-            );
-          })}
+        {/* ── Remarks section ── */}
+        <div className="eld-remarks-section">
+          <div className="eld-remarks-ruler-row">
+            <span className="eld-remarks-label">REMARKS</span>
+            {/* Mini ruler SVG matching bottom of grid */}
+            <svg viewBox={`0 0 ${GRID_W} 20`} width={`${(GRID_W / SVG_W) * 100}%`} className="eld-remarks-ruler-svg">
+              <rect x={0} y={4} width={GRID_W} height={12} fill="white" stroke="#1a1a1a" strokeWidth="1" />
+              {Array.from({ length: 24 * 4 + 1 }).map((_, q) => {
+                const x = (q / 4) * PX_PER_HR;
+                const isFull = q % 4 === 0;
+                const isHalf = q % 2 === 0;
+                const tickH = isFull ? 12 : isHalf ? 8 : 5;
+                return (
+                  <line key={`rr-${q}`}
+                    x1={x} y1={4}
+                    x2={x} y2={4 + tickH}
+                    stroke="#555" strokeWidth={isFull ? 1 : 0.5}
+                  />
+                );
+              })}
+            </svg>
+            <span className="eld-remarks-eq24">=24</span>
+          </div>
 
-          {/* "Total Hours" header on right */}
-          <text
-            x={GRID_X + GRID_W + TOTALS_W / 2}
-            y={GRID_TOP - 4}
-            textAnchor="middle"
-            fontSize="8"
-            fontFamily="Inter, sans-serif"
-            fontWeight="700"
-            fill="#1e293b"
-          >
-            TOTAL
-          </text>
-          <text
-            x={GRID_X + GRID_W + TOTALS_W / 2}
-            y={GRID_TOP - 4 + 10}
-            textAnchor="middle"
-            fontSize="8"
-            fontFamily="Inter, sans-serif"
-            fontWeight="700"
-            fill="#1e293b"
-          >
-            HOURS
-          </text>
-
-          {/* ── THE STATUS LINE (the main drawing) ── */}
-          <path
-            d={statusPath}
-            stroke="#0f172a"
-            strokeWidth="3"
-            fill="none"
-            strokeLinejoin="bevel"
-            strokeLinecap="butt"
-          />
-        </svg>
-      </div>
-
-      {/* ── Totals Bar ── */}
-      <div className="eld-totals-bar">
-        <div className="eld-total-item">
-          <span className="eld-total-label">Off Duty</span>
-          <span className="eld-total-val">{formatHours(hours_summary.off_duty || 0)}</span>
-        </div>
-        <div className="eld-total-item">
-          <span className="eld-total-label">Sleeper Berth</span>
-          <span className="eld-total-val">{formatHours(hours_summary.sleeper_berth || 0)}</span>
-        </div>
-        <div className="eld-total-item">
-          <span className="eld-total-label">Driving</span>
-          <span className="eld-total-val eld-driving">{formatHours(hours_summary.driving || 0)}</span>
-        </div>
-        <div className="eld-total-item">
-          <span className="eld-total-label">On Duty (Not Driving)</span>
-          <span className="eld-total-val">{formatHours(hours_summary.on_duty_not_driving || 0)}</span>
-        </div>
-        <div className="eld-total-item eld-grand-total">
-          <span className="eld-total-label">TOTAL</span>
-          <span className="eld-total-val">{formatHours(totalHours)}</span>
-        </div>
-      </div>
-
-      {/* ── Remarks Section ── */}
-      <div className="eld-remarks">
-        <h4 className="eld-remarks-title">REMARKS</h4>
-        <div className="eld-remarks-note">
-          Enter name of place you reported and where released from work and when and where each change of duty occurred.
-        </div>
-        {remarks.length > 0 ? (
-          <table className="eld-remarks-table">
-            <thead>
-              <tr>
-                <th style={{ width: '12%' }}>Time</th>
-                <th style={{ width: '50%' }}>Location</th>
-                <th style={{ width: '38%' }}>Status / Activity</th>
-              </tr>
-            </thead>
-            <tbody>
+          {/* Location remark entries — displayed vertically like official form */}
+          {remarks.length > 0 && (
+            <div className="eld-remarks-locs-row">
               {remarks.map((r, i) => (
-                <tr key={i}>
-                  <td>{r.time}</td>
-                  <td>{r.location}</td>
-                  <td>{(r.status || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</td>
-                </tr>
+                <div key={i} className="eld-remark-entry">
+                  <div className="eld-remark-time">{r.time}</div>
+                  <div className="eld-remark-loc-text">{r.location}</div>
+                  <div className="eld-remark-status-tag">
+                    {(r.status || '').replace(/_/g, ' ')}
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
-        ) : (
-          <p className="eld-no-remarks">No remarks recorded for this day.</p>
-        )}
-      </div>
+            </div>
+          )}
 
-      {/* ── Certification ── */}
-      <div className="eld-certification">
-        <p>I certify that these entries are true and correct.</p>
-        <div className="eld-sig-row">
-          <div className="eld-sig-field">
-            <span className="eld-sig-line"></span>
-            <span className="eld-sig-label">Driver's Signature</span>
-          </div>
-          <div className="eld-sig-field">
-            <span className="eld-sig-line"></span>
-            <span className="eld-sig-label">Co-Driver</span>
+          <div className="eld-remarks-instruction">
+            Enter name of place you reported and where released from work and when and where each change of duty occurred.
+            Use time standard of home terminal.
           </div>
         </div>
+
+        {/* ── Shipping / Recap section ── */}
+        <div className="eld-shipping-section">
+          <div className="eld-shipping-row">
+            <div className="eld-shipping-left">
+              <span className="eld-shipping-title">Shipping Documents:</span>
+              <div className="eld-shipping-field">
+                <span className="eld-field-sub">DVL or Manifest No.</span>
+                <div className="eld-field-line"></div>
+              </div>
+              <div className="eld-shipping-field">
+                <span className="eld-field-sub">Shipper &amp; Commodity</span>
+                <div className="eld-field-line"></div>
+              </div>
+            </div>
+            <div className="eld-recap-block">
+              <div className="eld-recap-title">Recap: 70 Hour / 8 Day Drivers</div>
+              <table className="eld-recap-table">
+                <tbody>
+                  <tr>
+                    <td>On duty hrs today (Lines 3 &amp; 4)</td>
+                    <td className="eld-recap-val">
+                      {fmtDecHrs((hours_summary.driving || 0) + (hours_summary.on_duty_not_driving || 0))}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>Total hrs on duty last 7 days</td>
+                    <td className="eld-recap-val">—</td>
+                  </tr>
+                  <tr>
+                    <td>Total hrs avail. tomorrow (70 hr minus A)</td>
+                    <td className="eld-recap-val">—</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   );
