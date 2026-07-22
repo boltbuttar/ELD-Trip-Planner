@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: spotter-eld-backend
+    runtime: python
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn backend.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120"
+    envVars:
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: PYTHON_VERSION
+        value: "3.11.0"
