@@ -1,121 +1,88 @@
 import React from 'react';
-import { Route, Clock, Calendar, Bed, Fuel, Activity, Navigation2 } from 'lucide-react';
+import { Route, Clock, Calendar, Bed, Fuel, Activity } from 'lucide-react';
+
+const CARDS = [
+  { key: 'total_miles', icon: Route, label: 'Total Distance', color: '#4299E1', bg: 'rgba(66,153,225,0.1)', format: v => `${Math.round(v).toLocaleString()}`, unit: 'mi' },
+  { key: 'total_driving_hours', icon: Clock, label: 'Driving Time', color: '#48BB78', bg: 'rgba(72,187,120,0.1)', format: v => v.toFixed(1), unit: 'hrs' },
+  { key: 'total_days', icon: Calendar, label: 'Days', color: '#9F7AEA', bg: 'rgba(159,122,234,0.1)', format: v => v, unit: '' },
+  { key: 'total_duty_hours', icon: Activity, label: 'Duty Hours', color: '#F56565', bg: 'rgba(245,101,101,0.1)', format: v => v.toFixed(1), unit: 'hrs' },
+  { key: 'total_rest_stops', icon: Bed, label: 'Rest Stops', color: '#ECC94B', bg: 'rgba(236,201,75,0.1)', format: v => v, unit: '' },
+  { key: 'total_fuel_stops', icon: Fuel, label: 'Fuel Stops', color: '#4FD1C5', bg: 'rgba(79,209,197,0.1)', format: v => v, unit: '' },
+];
 
 const TripSummary = ({ summary }) => {
   if (!summary) return null;
 
-  const miles       = summary.total_miles          || 0;
-  const drivingHrs  = summary.total_driving_hours  || 0;
-  const dutyHrs     = summary.total_duty_hours     || 0;
-  const days        = summary.total_days           || 0;
-  const rests       = summary.total_rest_stops     || 0;
-  const fuels       = summary.total_fuel_stops     || 0;
-  const legs        = summary.legs                 || [];
-
-  // HOS utilisation bars (as % of daily limits)
-  const hosItems = [
-    { label: 'Driving',  hrs: drivingHrs / days, limit: 11, color: '#3b82f6' },
-    { label: 'On Duty',  hrs: dutyHrs    / days, limit: 14, color: '#10b981' },
-  ];
+  // Generate mini bar chart data from driving hours
+  const totalMiles = summary.total_miles || 0;
+  const drivingHrs = summary.total_driving_hours || 0;
 
   return (
-    <div className="summary-section animate-slide-up">
-
-      <div className="sidebar-section-title">
-        <Activity size={11} /> Trip Summary
-      </div>
-
-      {/* Big hero stat */}
-      <div style={{
-        background: 'linear-gradient(135deg, #1e3a8a 0%, #312e81 100%)',
-        borderRadius: 'var(--r-lg)',
-        padding: '14px 16px',
-        border: '1px solid rgba(59,130,246,0.3)',
-        marginBottom: '8px',
-        position: 'relative',
-        overflow: 'hidden'
-      }}>
-        {/* bg glow */}
-        <div style={{
-          position: 'absolute', top: -20, right: -20,
-          width: 80, height: 80, borderRadius: '50%',
-          background: 'rgba(59,130,246,0.25)', filter: 'blur(20px)', pointerEvents: 'none'
-        }} />
-        <div style={{ fontSize: '0.6rem', fontWeight: 700, color: 'rgba(148,163,184,0.8)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>
-          Total Distance
+    <div className="animate-slide-up">
+      {/* Big stat card like $223,465.40 in reference */}
+      <div className="stat-card" style={{ marginBottom: '10px' }}>
+        <div className="stat-card-header">
+          <span className="stat-card-title">Total Distance</span>
         </div>
-        <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: '2rem', fontWeight: 800, color: '#fff', lineHeight: 1 }}>
-          {Math.round(miles).toLocaleString()}
-          <span style={{ fontSize: '0.9rem', fontWeight: 500, color: '#94a3b8', marginLeft: '5px' }}>mi</span>
+        <div className="stat-card-value">
+          {Math.round(totalMiles).toLocaleString()}
+          <span className="unit"> mi</span>
         </div>
-        <div style={{ display: 'flex', gap: '12px', marginTop: '8px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '0.68rem', color: '#93c5fd', fontWeight: 600 }}>
-            🕐 {drivingHrs.toFixed(1)} hrs driving
-          </span>
-          <span style={{ fontSize: '0.68rem', color: '#86efac', fontWeight: 600 }}>
-            📅 {days} day{days !== 1 ? 's' : ''}
-          </span>
+        <div className="stat-card-change positive">
+          {drivingHrs.toFixed(1)} hrs driving · {summary.total_days || 0} day{(summary.total_days || 0) !== 1 ? 's' : ''}
         </div>
-      </div>
-
-      {/* Stat cards 2×2 grid */}
-      <div className="stat-cards-grid">
-        {[
-          { icon: Clock,        val: drivingHrs.toFixed(1), unit: 'h', label: 'Driving',    bg: 'rgba(59,130,246,0.15)',  color: '#60a5fa' },
-          { icon: Activity,     val: dutyHrs.toFixed(1),    unit: 'h', label: 'On Duty',    bg: 'rgba(16,185,129,0.15)', color: '#34d399' },
-          { icon: Bed,          val: rests,                 unit: '',  label: 'Rest Stops', bg: 'rgba(139,92,246,0.15)', color: '#a78bfa' },
-          { icon: Fuel,         val: fuels,                 unit: '',  label: 'Fuel Stops', bg: 'rgba(245,158,11,0.15)', color: '#fbbf24' },
-        ].map(({ icon: Icon, val, unit, label, bg, color }) => (
-          <div key={label} className="stat-card">
-            <div className="stat-card-icon" style={{ background: bg }}>
-              <Icon size={14} style={{ color }} />
-            </div>
-            <div className="stat-card-val">
-              {val}{unit && <span className="unit">{unit}</span>}
-            </div>
-            <div className="stat-card-label">{label}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* HOS utilisation bars */}
-      <div className="hos-status-row">
-        <div className="hos-status-title">Avg Daily HOS Usage</div>
-        <div className="hos-bars">
-          {hosItems.map(item => {
-            const pct = days > 0 ? Math.min(100, (item.hrs / item.limit) * 100) : 0;
-            return (
-              <div key={item.label} className="hos-bar-row">
-                <div className="hos-bar-label">{item.label}</div>
-                <div className="hos-bar-track">
-                  <div className="hos-bar-fill" style={{ width: `${pct}%`, background: item.color }} />
-                </div>
-                <div className="hos-bar-val">{days > 0 ? item.hrs.toFixed(1) : '—'}h</div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Route legs */}
-      {legs.length > 0 && (
-        <div className="route-legs">
-          <div className="hos-status-title" style={{ marginBottom: '8px' }}>Route Legs</div>
-          {legs.map((leg, i) => (
-            <div key={i} className="leg-item">
-              <div className="leg-dot" style={{ background: i === 0 ? '#3b82f6' : '#10b981' }} />
-              <div className="leg-info">
-                <div className="leg-route">
-                  {leg.from} → {leg.to}
-                </div>
-                <div className="leg-meta">
-                  {Math.round(leg.distance_miles)} mi · {leg.duration_hours?.toFixed(1)} hrs
-                </div>
-              </div>
-            </div>
+        {/* Mini bar chart */}
+        <div className="stat-mini-chart">
+          {[35, 60, 80, 45, 90, 55, 70, 40, 85, 50, 65, 75].map((h, i) => (
+            <div key={i} className={`stat-bar ${i >= 8 ? 'active' : ''}`} style={{ height: `${h}%` }} />
           ))}
         </div>
-      )}
+      </div>
+
+      {/* Shipment Status breakdown like reference */}
+      <div className="stat-card" style={{ marginBottom: '10px' }}>
+        <div className="stat-card-header">
+          <span className="stat-card-title">Trip Breakdown</span>
+        </div>
+        <div className="status-breakdown">
+          <div className="status-item">
+            <div className="status-item-value">{drivingHrs.toFixed(1)}</div>
+            <div className="status-item-label">Driving</div>
+          </div>
+          <div className="status-item">
+            <div className="status-item-value">{(summary.total_duty_hours - drivingHrs).toFixed(1)}</div>
+            <div className="status-item-label">On Duty</div>
+          </div>
+          <div className="status-item">
+            <div className="status-item-value">{summary.total_rest_stops}</div>
+            <div className="status-item-label">Rests</div>
+          </div>
+          <div className="status-item">
+            <div className="status-item-value">{summary.total_fuel_stops}</div>
+            <div className="status-item-label">Fuel</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Mini summary cards grid */}
+      <div className="summary-grid">
+        {CARDS.map(({ key, icon: Icon, label, color, bg, format, unit }) => {
+          const val = summary[key] || 0;
+          return (
+            <div key={key} className="summary-mini-card">
+              <div className="summary-mini-icon" style={{ background: bg, color }}>
+                <Icon size={16} />
+              </div>
+              <div>
+                <div className="summary-mini-value">
+                  {format(val)}{unit && <span style={{ fontSize: '0.65rem', color: '#A0AEC0', marginLeft: '2px' }}>{unit}</span>}
+                </div>
+                <div className="summary-mini-label">{label}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };

@@ -1,24 +1,17 @@
 import React, { useState } from 'react';
-import { MapPin, Package, Flag, Clock, Zap, Navigation, ChevronRight } from 'lucide-react';
+import { MapPin, Package, Flag, Clock, Navigation, Zap } from 'lucide-react';
 
 const PRESETS = [
-  { label: 'NYC → Chicago → Miami',     locations: ['New York, NY',    'Chicago, IL',   'Miami, FL'] },
-  { label: 'LA → Dallas → Atlanta',     locations: ['Los Angeles, CA', 'Dallas, TX',    'Atlanta, GA'] },
-  { label: 'Seattle → Denver → Houston',locations: ['Seattle, WA',     'Denver, CO',    'Houston, TX'] },
-  { label: 'Chicago → St. Louis → Nashville', locations: ['Chicago, IL', 'St. Louis, MO', 'Nashville, TN'] },
-];
-
-const FIELDS = [
-  { name: 'current_location', label: 'Current Location', icon: MapPin,   placeholder: 'e.g. New York, NY',   color: '#60a5fa' },
-  { name: 'pickup_location',  label: 'Pickup Location',  icon: Package,  placeholder: 'e.g. Chicago, IL',    color: '#34d399' },
-  { name: 'dropoff_location', label: 'Dropoff Location', icon: Flag,     placeholder: 'e.g. Miami, FL',      color: '#f87171' },
+  { label: 'NYC → CHI → MIA', locations: ['New York, NY', 'Chicago, IL', 'Miami, FL'] },
+  { label: 'LA → DAL → ATL', locations: ['Los Angeles, CA', 'Dallas, TX', 'Atlanta, GA'] },
+  { label: 'SEA → DEN → HOU', locations: ['Seattle, WA', 'Denver, CO', 'Houston, TX'] },
 ];
 
 const TripForm = ({ onSubmit, isLoading }) => {
   const [formData, setFormData] = useState({
-    current_location:  '',
-    pickup_location:   '',
-    dropoff_location:  '',
+    current_location: '',
+    pickup_location: '',
+    dropoff_location: '',
     current_cycle_used: 0
   });
 
@@ -39,118 +32,106 @@ const TripForm = ({ onSubmit, isLoading }) => {
 
   const applyPreset = (preset) => {
     setFormData({
-      current_location:   preset.locations[0],
-      pickup_location:    preset.locations[1],
-      dropoff_location:   preset.locations[2],
+      current_location: preset.locations[0],
+      pickup_location: preset.locations[1],
+      dropoff_location: preset.locations[2],
       current_cycle_used: 0
     });
   };
 
   return (
-    <div className="animate-fade-in">
-      {/* Section label */}
-      <div className="sidebar-section-title">
-        <Navigation size={11} /> Plan Trip
+    <div className="trip-form-section animate-fade-in">
+      <div className="form-section-title">
+        <Navigation size={14} style={{ color: '#93B1C2' }} />
+        Plan Route
       </div>
 
-      <form onSubmit={handleSubmit}>
-        {/* Location fields */}
-        {FIELDS.map(({ name, label, icon: Icon, placeholder, color }) => (
-          <div className="form-group" key={name}>
-            <div className="form-label">
-              <Icon size={11} style={{ color }} /> {label}
-            </div>
-            <div className="input-wrap">
-              <div className="input-icon">
-                <Icon size={13} style={{ color }} />
-              </div>
-              <input
-                type="text"
-                name={name}
-                value={formData[name]}
-                onChange={handleChange}
-                className="input-field"
-                placeholder={placeholder}
-                required
-                autoComplete="off"
-              />
-            </div>
-          </div>
-        ))}
-
-        {/* Cycle hours */}
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <div className="form-group">
-          <div className="form-label">
-            <Clock size={11} style={{ color: '#f59e0b' }} /> Cycle Used (Hrs)
-          </div>
-          <div className="input-wrap">
-            <div className="input-icon">
-              <Clock size={13} style={{ color: '#f59e0b' }} />
-            </div>
-            <input
-              type="number"
-              name="current_cycle_used"
-              value={formData.current_cycle_used}
-              onChange={handleChange}
-              className="input-field"
-              min="0" max="70" step="0.5"
-            />
-          </div>
-          {/* Cycle progress bar */}
-          <div style={{ marginTop: '6px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ fontSize: '0.58rem', color: 'var(--sidebar-muted)' }}>70hr/8-day cycle used</span>
-              <span style={{ fontSize: '0.65rem', fontWeight: 700, color: formData.current_cycle_used > 60 ? '#f87171' : '#60a5fa' }}>
-                {formData.current_cycle_used}h / 70h
-              </span>
-            </div>
-            <div style={{ height: '4px', background: 'rgba(255,255,255,0.08)', borderRadius: '2px', overflow: 'hidden' }}>
-              <div style={{
-                height: '100%',
-                width: `${Math.min(100, (formData.current_cycle_used / 70) * 100)}%`,
-                background: formData.current_cycle_used > 60 ? '#ef4444' : formData.current_cycle_used > 40 ? '#f59e0b' : '#3b82f6',
-                borderRadius: '2px',
-                transition: 'width 0.3s ease, background 0.3s ease'
-              }} />
-            </div>
-          </div>
+          <label><MapPin size={12} /> Current Location</label>
+          <input
+            type="text"
+            name="current_location"
+            value={formData.current_location}
+            onChange={handleChange}
+            className="input-field"
+            placeholder="e.g. New York, NY"
+            required
+          />
         </div>
 
-        {/* Submit */}
+        <div className="form-group">
+          <label><Package size={12} /> Pickup Location</label>
+          <input
+            type="text"
+            name="pickup_location"
+            value={formData.pickup_location}
+            onChange={handleChange}
+            className="input-field"
+            placeholder="e.g. Chicago, IL"
+            required
+          />
+        </div>
+
+        <div className="form-group">
+          <label><Flag size={12} /> Dropoff Location</label>
+          <input
+            type="text"
+            name="dropoff_location"
+            value={formData.dropoff_location}
+            onChange={handleChange}
+            className="input-field"
+            placeholder="e.g. Miami, FL"
+            required
+          />
+        </div>
+
+        <div className="form-group">
+          <label><Clock size={12} /> Cycle Used (Hours)</label>
+          <input
+            type="number"
+            name="current_cycle_used"
+            value={formData.current_cycle_used}
+            onChange={handleChange}
+            className="input-field"
+            min="0"
+            max="70"
+            step="0.5"
+          />
+          <p className="form-hint">70hr/8day cycle — hours already used</p>
+        </div>
+
         <button
           type="submit"
-          className="btn-plan"
-          disabled={isLoading || !formData.current_location || !formData.pickup_location || !formData.dropoff_location}
+          className="btn btn-primary"
+          disabled={isLoading}
+          style={{ width: '100%', padding: '10px', marginTop: '4px' }}
         >
           {isLoading ? (
-            <>
-              <Navigation size={15} className="spinner" />
-              Planning Route…
-            </>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Navigation size={14} className="spinner" /> Planning...
+            </span>
           ) : (
-            <>
-              <Zap size={15} />
-              Plan HOS Trip
-            </>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Zap size={14} /> Plan Trip
+            </span>
           )}
         </button>
       </form>
 
-      {/* Quick Presets */}
-      <div className="presets-section">
-        <div className="presets-label">Quick Presets</div>
-        <div className="presets-grid">
-          {PRESETS.map(preset => (
+      <div style={{ borderTop: '1px solid var(--color-border-light)', paddingTop: '8px' }}>
+        <p style={{ fontSize: '0.6rem', color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+          Quick Presets
+        </p>
+        <div className="presets-row">
+          {PRESETS.map((preset) => (
             <button
               key={preset.label}
               type="button"
-              className="preset-btn"
+              className="preset-chip"
               onClick={() => applyPreset(preset)}
-              disabled={isLoading}
             >
-              <Navigation size={11} style={{ color: '#60a5fa', flexShrink: 0 }} />
-              <span style={{ flex: 1 }}>{preset.label}</span>
-              <ChevronRight size={11} className="preset-arrow" />
+              {preset.label}
             </button>
           ))}
         </div>
