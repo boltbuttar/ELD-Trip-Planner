@@ -5,7 +5,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://spotter-eld-backend.onrender.com/api/$1"
+      "destination": "https://spotter-eld-backend-arrv.onrender.com/api/$1"
     },
     {
       "source": "/(.*)",
